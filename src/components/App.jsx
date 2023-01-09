@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { ThreeDots } from 'react-loader-spinner';
 import { Wrapper } from './App.styled';
 import { GlobalStyle } from './GlobalStyle';
@@ -9,126 +9,120 @@ import { ImageGallery } from './ImageGallery';
 import { Modal } from './Modal';
 import { Button } from './Button';
 
-export class App extends Component {
-  state = {
-    page: 1,
-    query: '',
-    images: [],
-    total: 0,
-    largeImage: '',
-    error: '',
-    status: 'idle',
-  };
+const Status = {
+  IDLE: 'idle',
+  PENDING: 'pending',
+  REJECTED: 'rejected',
+  RESOLVED: 'resolved',
+};
 
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.page !== this.state.page ||
-      prevState.query !== this.state.query
-    ) {
-      this.setState({ status: 'pending' });
-      fetchImages({ query: this.state.query, page: this.state.page })
-        .then(({ totalHits, hits }) => {
-          if (totalHits) {
-            this.setState(prevState => ({
-              images: [...prevState.images, ...hits],
-              total: totalHits,
-              status: 'resolved',
-            }));
-          } else {
-            this.setState({ status: 'rejected' });
-          }
-        })
-        .catch(error => this.setState({ error, status: 'rejected' }));
-    }
-  }
+export function App() {
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [largeImage, setLargeImage] = useState('');
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState(Status.IDLE);
 
-  handleFormSubmit = e => {
-    e.preventDefault();
-    const query = e.target.elements.query.value.trim().toLowerCase();
-
+  useEffect(() => {
     if (!query) {
+      return;
+    }
+    setStatus(Status.PENDING);
+    fetchImages({ query: query, page: page })
+      .then(({ totalHits, hits }) => {
+        if (totalHits) {
+          setImages(prevImages => [...prevImages, ...hits]);
+          setTotal(totalHits);
+          setStatus(Status.RESOLVED);
+        } else {
+          setStatus(Status.REJECTED);
+        }
+      })
+      .catch(error => {
+        setError(error);
+        setStatus(Status.REJECTED);
+      });
+  }, [page, query]);
+
+  const handleFormSubmit = e => {
+    e.preventDefault();
+    const searchQuery = e.target.elements.query.value.trim().toLowerCase();
+
+    if (!searchQuery) {
       alert('Search box cannot be empty. Please enter the word.');
       return;
     }
-
-    this.setState({
-      page: 1,
-      query,
-      images: [],
-    });
+    setQuery(searchQuery);
+    setPage(1);
+    setImages([]);
 
     e.target.reset();
   };
 
-  loadMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-      status: 'pending',
-    }));
+  const loadMore = () => {
+    setPage(prevPage => prevPage + 1);
+    setStatus(Status.PENDING);
   };
 
-  openModal = image => {
-    this.setState({ largeImage: image });
+  const openModal = image => {
+    setLargeImage(image);
   };
 
-  closeModal = () => {
-    this.setState({ largeImage: '' });
+  const closeModal = () => {
+    setLargeImage('');
   };
 
-  render() {
-    const { query, images, total, largeImage, status } = this.state;
-    if (status === 'idle') {
-      return (
-        <Wrapper>
-          <GlobalStyle />
-          <Searchbar onSubmit={this.handleFormSubmit} />
-          <Notification message="There are no images yet." />
-        </Wrapper>
-      );
-    }
-    if (status === 'pending') {
-      return (
-        <Wrapper>
-          <GlobalStyle />
-          <Searchbar onSubmit={this.handleFormSubmit} />
-          <ImageGallery items={images} onClick={this.openModal} />
-          <ThreeDots
-            height="50"
-            width="50"
-            radius="9"
-            color="#3f51b5"
-            ariaLabel="three-dots-loading"
-            wrapperStyle={{
-              margin: '0 auto',
-            }}
-            visible={true}
-          />
-        </Wrapper>
-      );
-    }
-    if (status === 'rejected') {
-      return (
-        <Wrapper>
-          <GlobalStyle />
-          <Searchbar onSubmit={this.handleFormSubmit} />
-          <Notification
-            message={`No results containing ${query} were found.`}
-          />
-        </Wrapper>
-      );
-    }
-    if (status === 'resolved') {
-      return (
-        <Wrapper>
-          <GlobalStyle />
-          <Searchbar onSubmit={this.handleFormSubmit} />
-          <ImageGallery items={images} onClick={this.openModal} />
-          {largeImage.length > 0 && (
-            <Modal onClose={this.closeModal} image={largeImage} />
-          )}
-          {images.length < total && <Button onClick={this.loadMore} />}
-        </Wrapper>
-      );
-    }
+  if (status === Status.IDLE) {
+    return (
+      <Wrapper>
+        <GlobalStyle />
+        <Searchbar onSubmit={handleFormSubmit} />
+        <Notification message="There are no images yet." />
+      </Wrapper>
+    );
+  }
+  if (status === Status.PENDING) {
+    return (
+      <Wrapper>
+        <GlobalStyle />
+        <Searchbar onSubmit={handleFormSubmit} />
+        <ImageGallery items={images} onClick={openModal} />
+        <ThreeDots
+          height="50"
+          width="50"
+          radius="9"
+          color="#3f51b5"
+          ariaLabel="three-dots-loading"
+          wrapperStyle={{
+            margin: '0 auto',
+          }}
+          visible={true}
+        />
+      </Wrapper>
+    );
+  }
+  if (status === Status.REJECTED) {
+    return (
+      <Wrapper>
+        <GlobalStyle />
+        <Searchbar onSubmit={handleFormSubmit} />
+        <Notification message={`No results containing ${query} were found.`} />
+      </Wrapper>
+    );
+  }
+  if (status === Status.RESOLVED) {
+    return (
+      <Wrapper>
+        <GlobalStyle />
+        <Searchbar onSubmit={handleFormSubmit} />
+        <ImageGallery items={images} onClick={openModal} />
+        {largeImage.length > 0 && (
+          <Modal onClose={closeModal} image={largeImage} />
+        )}
+        {images.length < total && <Button onClick={loadMore} />}
+      </Wrapper>
+    );
   }
 }
