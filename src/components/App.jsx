@@ -22,7 +22,6 @@ export function App() {
   const [images, setImages] = useState([]);
   const [total, setTotal] = useState(0);
   const [largeImage, setLargeImage] = useState('');
-  const [error, setError] = useState('');
   const [status, setStatus] = useState(Status.IDLE);
 
   useEffect(() => {
@@ -41,7 +40,7 @@ export function App() {
         }
       })
       .catch(error => {
-        setError(error);
+        console.log(error);
         setStatus(Status.REJECTED);
       });
   }, [page, query]);
